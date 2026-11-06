@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#2457c5">
+<meta name="description" content="手机友好的真人视频判断测验：逐题作答，提交后查看成绩与解析。">
+<title>真假视频答题表单</title>
+<style>
+  [hidden]{display:none!important}
+  /* ===================================================================
+     设计令牌：与问卷页、体验舱、检测台共用同一套色板与圆角体系
+     =================================================================== */
+  :root{
+    color-scheme: light;
+    --ink:#182230; --muted:#596579; --line:#dce3ec;
+    --surface:#fff; --page:#f3f6fa;
+    --brand:#2457c5; --brand-dark:#19449f; --brand-soft:#edf2ff;
+    --success:#176b43; --success-soft:#e9f5ef;
+    --danger:#a52a2a; --danger-soft:#fbecec;
+    --gold:#8a6410; --gold-soft:#fbf3dd;
+    --radius:14px;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0}
+  body{
+    color:var(--ink); background:var(--page); line-height:1.65;
+    padding:16px 14px calc(28px + env(safe-area-inset-bottom));
+    min-height:100vh;
+  }
+  #app{width:min(100%,680px);margin:0 auto}
+  .screen{display:none}
+  .screen.on{display:block;animation:rise .32s cubic-bezier(.2,.8,.3,1) both}
+  @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @media (prefers-reduced-motion:reduce){
+    .screen.on{animation:none}
+    .fill{transition:none}
+  }
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 3px 14px rgb(22 39 68/5%)}
+  :focus-visible{outline:3px solid #91adf5;outline-offset:2px}
+
+  /* ---------- 开始页 ---------- */
+  .hero{padding:26px 22px;text-align:center}
+  .kicker{
+    display:inline-block;margin-bottom:12px;padding:4px 12px;border-radius:99px;
+    background:var(--brand-soft);color:var(--brand-dark);font-size:.78rem;font-weight:700;letter-spacing:.06em;
+  }
+  h1{margin:0 0 10px;font-size:clamp(1.5rem,6.4vw,2rem);line-height:1.28;letter-spacing:-.01em}
+  .lede{margin:0 auto;max-width:29em;color:var(--muted);font-size:.96rem}
+  .rules{margin:20px 0 0;padding:16px 16px 16px 34px;text-align:left;background:var(--page);border-radius:11px;font-size:.92rem;color:var(--muted)}
+  .rules li{margin:5px 0}
+  .rules b{color:var(--ink)}
+  .btn{
+    display:block;width:100%;min-height:52px;padding:14px 18px;border:1px solid transparent;border-radius:11px;
+    font:inherit;font-size:1.02rem;font-weight:700;cursor:pointer;transition:.16s;
+  }
+  .btn-primary{color:#fff;background:var(--brand);box-shadow:0 6px 18px rgb(36 87 197/22%)}
+  .btn-primary:active:not(:disabled){transform:translateY(1px);box-shadow:0 3px 10px rgb(36 87 197/22%)}
+  .btn-ghost{color:var(--ink);background:#fff;border-color:var(--line)}
+  .btn-ghost:active:not(:disabled){background:var(--page)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn+.btn{margin-top:10px}
+  .start-actions{margin-top:22px}
+  .best{margin:14px 0 0;font-size:.86rem;color:var(--muted);text-align:center}
+  .best b{color:var(--brand)}
+
+  /* ---------- 顶部进度 ---------- */
+  .topbar{position:sticky;top:0;z-index:20;margin:-16px -14px 12px;padding:12px 14px 10px;background:rgb(243 246 250/92%);backdrop-filter:blur(8px)}
+  .track{height:6px;background:#e4eaf3;border-radius:99px;overflow:hidden}
+  .fill{height:100%;width:0;background:linear-gradient(90deg,#2457c5,#4f7fe0);border-radius:99px;transition:width .3s cubic-bezier(.2,.8,.3,1)}
+  .meta{display:flex;justify-content:space-between;margin-top:8px;font-size:.82rem;font-weight:700;color:var(--muted)}
+  .meta .pts{color:var(--brand)}
+
+  /* ---------- 视频 ---------- */
+  .media{padding:0;overflow:hidden}
+  .video-wrap{position:relative;background:#0d1520;aspect-ratio:4/3;display:grid;place-items:center}
+  .video-wrap video{width:100%;height:100%;object-fit:contain;display:block;background:#0d1520}
+  .guard{
+    position:absolute;inset:0;display:grid;place-items:center;gap:10px;
+    width:100%;height:100%;border:0;cursor:pointer;
+    color:#fff;font:inherit;font-size:.95rem;font-weight:700;
+    background:radial-gradient(circle at 50% 45%,rgb(36 87 197/28%),rgb(8 14 24/72%));
+  }
+  .guard i{
+    display:grid;place-items:center;width:62px;height:62px;border-radius:50%;
+    background:rgb(255 255 255/94%);color:#19449f;font-size:1.3rem;font-style:normal;
+    box-shadow:0 8px 24px rgb(0 0 0/30%);
+  }
+  .guard span{text-shadow:0 1px 4px rgb(0 0 0/60%)}
+  .clip-tag{
+    position:absolute;left:10px;top:10px;padding:3px 9px;border-radius:6px;
+    background:rgb(13 21 32/72%);color:#dfe8f6;font-size:.72rem;font-weight:600;letter-spacing:.04em;
+  }
+  /* 播放控制条：解析里明确要求用户"听声音""降到 0.25 倍看"，所以这两项是功能，不是装饰 */
+  .vtools{position:absolute;right:8px;bottom:8px;display:flex;gap:6px;z-index:2}
+  .vtool{
+    min-height:32px;padding:4px 10px;border:1px solid rgb(255 255 255/22%);border-radius:8px;
+    background:rgb(13 21 32/68%);color:#e8effa;font:inherit;font-size:.76rem;font-weight:700;
+    cursor:pointer;backdrop-filter:blur(4px);
+  }
+  .vtool[aria-pressed="true"]{background:#fff;color:#19449f;border-color:#fff}
+  .missing{padding:22px;color:#c7d5ea;font-size:.86rem;text-align:center;line-height:1.7}
+  .missing code{background:rgb(255 255 255/12%);padding:1px 6px;border-radius:4px;font-size:.8rem}
+  .missing .btn{max-width:240px;margin:14px auto 0;min-height:42px;font-size:.86rem;background:rgb(255 255 255/12%);color:#dbe6f5;border-color:rgb(255 255 255/25%)}
+  .scene{margin:0;padding:12px 16px;color:var(--muted);font-size:.85rem;border-top:1px solid var(--line)}
+
+  /* ---------- 作答 ---------- */
+  .ask{margin:16px 0 10px;font-size:1rem;font-weight:700;text-align:center}
+  .choices{display:grid;grid-template-columns:1fr 1fr;gap:11px}
+  .choice{
+    min-height:64px;padding:12px 8px;border:1.5px solid var(--line);border-radius:12px;
+    background:#fff;color:var(--ink);font:inherit;font-size:1rem;font-weight:700;cursor:pointer;
+    display:grid;place-items:center;gap:2px;transition:.15s;
+  }
+  .choice small{font-size:.72rem;font-weight:600;color:var(--muted)}
+  .choice:active:not(:disabled){transform:scale(.982)}
+  .choice:disabled{cursor:default}
+  .choice.pick-ok{border-color:var(--success);background:var(--success-soft);color:var(--success)}
+  .choice.pick-bad{border-color:var(--danger);background:var(--danger-soft);color:var(--danger)}
+  .choice.pick-ok small,.choice.pick-bad small{color:inherit;opacity:.8}
+  .choice.selected{border-color:var(--brand);background:var(--brand-soft);color:var(--brand-dark)}
+  .choice.selected small{color:var(--brand-dark)}
+  .choice.dim{opacity:.42}
+
+  /* ---------- 解析 ---------- */
+  .fb{margin-top:16px;padding:18px;border-radius:var(--radius);border:1px solid var(--line);background:#fff;box-shadow:0 3px 14px rgb(22 39 68/5%)}
+  .fb-head{display:flex;align-items:center;gap:9px;margin-bottom:12px;flex-wrap:wrap}
+  .form-status{margin:0;color:var(--muted);font-size:.9rem}
+  .form-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+  .form-actions .btn{min-height:48px}
+  .verdict{display:inline-flex;align-items:center;gap:6px;padding:5px 11px;border-radius:99px;font-size:.82rem;font-weight:800;letter-spacing:.02em}
+  .verdict.ok{background:var(--success-soft);color:var(--success)}
+  .verdict.bad{background:var(--danger-soft);color:var(--danger)}
+  .truth{margin-left:auto;font-size:.82rem;font-weight:700;color:var(--muted)}
+  .truth b{color:var(--ink)}
+  .fb p{margin:0 0 12px;font-size:.94rem;color:#31404f}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 13px;padding:0;list-style:none}
+  .chips li{padding:3px 10px;border-radius:99px;background:var(--brand-soft);color:var(--brand-dark);font-size:.76rem;font-weight:700}
+  .tipbox{padding:12px 14px;border-left:3px solid var(--brand);background:var(--page);border-radius:0 9px 9px 0;font-size:.9rem}
+  .tipbox b{display:block;margin-bottom:3px;font-size:.78rem;letter-spacing:.08em;color:var(--brand-dark)}
+
+  /* ---------- 结果页 ---------- */
+  .result{padding:26px 22px}
+  .score-ring{position:relative;width:168px;height:168px;margin:6px auto 4px}
+  .score-ring svg{transform:rotate(-90deg)}
+  .score-ring .num{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+  .score-ring .num b{display:block;font-size:2.7rem;line-height:1;letter-spacing:-.03em}
+  .score-ring .num span{font-size:.8rem;color:var(--muted);font-weight:600}
+  .tier{text-align:center;margin:6px 0 4px;font-size:1.32rem;font-weight:800;letter-spacing:.01em}
+  .tier-sub{text-align:center;margin:0 0 6px;color:var(--muted);font-size:.9rem}
+  .skip-note{text-align:center;margin:0 0 16px;font-size:.8rem;color:var(--danger)}
+  .divider{height:1px;background:var(--line);margin:20px 0}
+  h2{margin:0 0 12px;font-size:1rem;letter-spacing:.02em}
+  h2 .h-sub{font-weight:600;color:var(--muted);font-size:.8rem;margin-left:8px}
+  .review{margin:0;padding:0;list-style:none}
+  .review li{border-bottom:1px dashed var(--line)}
+  .review li:last-child{border-bottom:0}
+  .review button{
+    display:flex;gap:11px;width:100%;padding:11px 4px;border:0;background:transparent;border-radius:8px;
+    color:inherit;font:inherit;font-size:.9rem;text-align:left;cursor:pointer;
+  }
+  .review button:hover{background:var(--page)}
+  .review .no{flex:0 0 26px;height:26px;display:grid;place-items:center;border-radius:50%;background:var(--danger-soft);color:var(--danger);font-size:.76rem;font-weight:800}
+  .review .txt b{display:block;font-size:.9rem}
+  .review .txt span{color:var(--muted);font-size:.85rem}
+  .review .re{display:inline-block;color:var(--brand);font-weight:700;font-size:.8rem;margin-top:2px}
+  .tips{margin:0;padding:0;list-style:none;counter-reset:t}
+  .tips li{position:relative;padding:11px 0 11px 40px;border-bottom:1px solid var(--line);font-size:.92rem}
+  .tips li:last-child{border-bottom:0}
+  .tips li::before{
+    counter-increment:t;content:counter(t);
+    position:absolute;left:0;top:11px;width:26px;height:26px;display:grid;place-items:center;
+    border-radius:8px;background:var(--brand);color:#fff;font-size:.78rem;font-weight:800;
+  }
+  .tips b{display:block}
+  .tips span{color:var(--muted);font-size:.86rem}
+  .allright{padding:16px;border-radius:11px;background:var(--success-soft);color:var(--success);font-size:.92rem;font-weight:600;text-align:center;margin-bottom:4px}
+  .disclaimer{margin:18px 0 0;padding:14px;border-radius:11px;background:var(--page);color:var(--muted);font-size:.84rem;line-height:1.72}
+  .disclaimer b{color:var(--ink)}
+
+  /* ---------- 浮层（海报 / 重看） ---------- */
+  .sheet{position:fixed;inset:0;z-index:60;display:none;padding:18px;overflow-y:auto;background:rgb(10 18 30/82%);backdrop-filter:blur(3px)}
+  .sheet.on{display:block}
+  .sheet-inner{width:min(100%,400px);margin:0 auto}
+  .sheet img{display:block;width:100%;border-radius:var(--radius);box-shadow:0 20px 50px rgb(0 0 0/45%)}
+  .sheet-hint{margin:12px 0 14px;color:#c6d3e6;font-size:.84rem;text-align:center}
+  .sheet .btn{background:#fff;color:var(--ink)}
+  .sheet .btn+.btn{margin-top:9px}
+  .sheet .btn-ghost-sheet{background:transparent;color:#e6eefb;border-color:rgb(255 255 255/35%)}
+
+  .replay-card{width:min(100%,520px);margin:0 auto;background:#fff;border-radius:var(--radius);overflow:hidden}
+  .replay-card .head{display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line)}
+  .replay-card .head b{font-size:.95rem}
+  .replay-card .head .close{margin-left:auto;min-height:32px;padding:3px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;font-size:.8rem;font-weight:700;cursor:pointer}
+  .replay-card .vw{position:relative;background:#0d1520;aspect-ratio:4/3}
+  .replay-card .vw video{width:100%;height:100%;object-fit:contain;display:block}
+  .replay-card .body{padding:16px}
+  .replay-card .body p{margin:0 0 10px;font-size:.9rem;color:#31404f}
+
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  @media (min-width:560px){
+    .choices{gap:14px}
+    .choice{min-height:72px;font-size:1.06rem}
+  }
+</style>
+</head>
+<body>
+<main id="app">
+
+  <!-- 开始 -->
+  <section class="screen on" id="s-start">
+    <div class="card hero">
+      <span class="kicker" id="kicker">挑战 · 加载中</span>
+      <h1>真假视频<br>大挑战</h1>
+      <p class="lede" id="lede">接下来你会看到用户提供的真人视频，其中有原版，也有经过换脸处理的版本。</p>
+      <ul class="rules">
+        <li><b>逐题作答</b>，可返回修改；全部提交后查看得分和解析</li>
+        <li>共 4 段真人视频：2 段原版、2 段换脸处理</li>
+        <li>视频由用户提供，需与本页面及 assets/videos 文件夹一起保存或部署</li>
+        <li>观察画面后判断视频是否经过换脸处理；单靠外观不能验证身份</li>
+      </ul>
+      <div class="start-actions">
+        <button class="btn btn-primary" id="btn-start" type="button">开始挑战</button>
+      </div>
+      <p class="best">成绩仅在本机计算，不上传，也不保存答题记录。</p>
+    </div>
+  </section>
+
+  <!-- 答题 -->
+  <section class="screen" id="s-quiz">
+    <div class="topbar">
+      <div class="track"><div class="fill" id="pfill"></div></div>
+      <div class="meta"><span id="qcount">第 1 / — 题</span>      <span class="pts" id="qscore">已答 0 / 4</span></div>
+    </div>
+
+    <div class="card media">
+      <div class="video-wrap" id="vwrap">
+          <video id="vid" playsinline webkit-playsinline controls muted loop preload="metadata" aria-label="待判断的视频片段"></video>
+        <span class="clip-tag" id="clipTag"></span>
+        <div class="vtools" id="vtools">
+          <button class="vtool" id="btnMute" type="button" aria-pressed="false" title="开关声音" hidden>🔇 静音</button>
+          <button class="vtool" id="btnRate" type="button" aria-pressed="false" title="切换播放速度" hidden>1× 速度</button>
+        </div>
+        <button class="guard" id="guard" type="button" hidden><i>▶</i><span>点此播放</span></button>
+      </div>
+      <p class="scene" id="sceneText"></p>
+    </div>
+
+    <p class="ask">这段视频是原版，还是经过换脸处理？</p>
+    <div class="choices" id="choices">
+      <button class="choice" data-v="real" type="button">原版<small>用户提供的原始视频</small></button>
+      <button class="choice" data-v="fake" type="button">换脸处理<small>用户提供的处理后视频</small></button>
+    </div>
+
+    <div class="fb" id="fb" hidden>
+      <p class="form-status" id="formStatus">已记录本题选择。提交前不会显示答案。</p>
+      <div class="form-actions">
+        <button class="btn btn-ghost" id="btn-prev" type="button">上一步</button>
+        <button class="btn btn-primary" id="btn-next" type="button">下一题</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 结果 -->
+  <section class="screen" id="s-result">
+    <div class="card result">
+      <div class="score-ring">
+        <svg width="168" height="168" viewBox="0 0 168 168" aria-hidden="true">
+          <circle cx="84" cy="84" r="72" fill="none" stroke="#e4eaf3" stroke-width="12"/>
+          <circle id="ring" cx="84" cy="84" r="72" fill="none" stroke="#2457c5" stroke-width="12"
+                  stroke-linecap="round" stroke-dasharray="452.4" stroke-dashoffset="452.4"
+                  style="transition:stroke-dashoffset .9s cubic-bezier(.2,.8,.3,1)"/>
+        </svg>
+        <div class="num"><b id="rScore">0</b><span id="rScoreLbl">答对题数</span></div>
+      </div>
+      <p class="tier" id="rTier">—</p>
+      <p class="tier-sub" id="rSub"></p>
+      <p class="skip-note" id="skipNote" hidden></p>
+
+      <div class="divider"></div>
+      <h2>答题解析<span class="h-sub">提交后可查看正确答案并重看视频</span></h2>
+      <div id="review"></div>
+
+      <div class="divider"></div>
+      <h2>三条真正管用的防骗动作</h2>
+      <ol class="tips">
+        <li><b>慢下来</b><span>任何让你「马上转账、马上决定」的视频通话，先挂断。真的急事，不差这 30 秒。</span></li>
+        <li><b>下指令，不听话术</b><span>让对方用手在脸前挥一下、转头、摸鼻子。预录的假视频接不住你的实时要求。</span></li>
+        <li><b>换渠道复核</b><span>视频里说的事，用你已知的号码打回去，或者找第三方确认。单一渠道的一切声音和画面都可以造假。</span></li>
+      </ol>
+
+      <p class="disclaimer"><b>请记住：</b>这 <span id="disN">4</span> 题使用用户提供的真人视频，答案按素材文件名标记，不是自动检测结果，也不能验证人物身份。现实中的身份、转账和授权请求，不能靠肉眼或这个小游戏确认；务必通过第二渠道核实。</p>
+
+      <div style="margin-top:20px">
+        <button class="btn btn-primary" id="btn-poster" type="button">生成成绩海报</button>
+        <button class="btn btn-ghost" id="btn-again" type="button">再挑战一次</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 海报 -->
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-label="成绩海报">
+    <div class="sheet-inner">
+      <img id="posterImg" alt="我的挑战成绩海报">
+      <p class="sheet-hint" id="posterHint">手机端可长按图片保存，或点下面的按钮下载</p>
+      <button class="btn" id="btn-download" type="button">保存图片</button>
+      <button class="btn btn-ghost-sheet" id="btn-close" type="button">关闭</button>
+    </div>
+  </div>
+
+  <!-- 错题重看 -->
+  <div class="sheet" id="replay" role="dialog" aria-modal="true" aria-label="重看错题">
+    <div class="replay-card">
+      <div class="head">
+        <b id="rpTitle">重看</b>
+        <button class="close" id="rpClose" type="button">关闭</button>
+      </div>
+      <div class="vw">
+        <video id="rpVid" playsinline webkit-playsinline controls loop preload="metadata"></video>
+      </div>
+      <div class="body">
+        <ul class="chips" id="rpChips" style="margin-bottom:10px"></ul>
+        <p id="rpExplain"></p>
+        <div class="tipbox"><b>识别要点</b><span id="rpTip"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="sr" id="live" role="status" aria-live="polite"></p>
+  <noscript><p style="padding:20px;color:#a52a2a">本页需要 JavaScript 才能运行。请更换浏览器或开启脚本。</p></noscript>
+</main>
+
+<script>
+"use strict";
+
+/* ===================================================================
+   数据层
+   ⚠ 本数组是运行时唯一数据源；01-quiz-bank.json 是同一份内容的静态
+     副本，供复用与答辩展示。改动后必须同步两处，并运行
+     verify/test.js 校验一致性，否则真值会与解析错位。
+   =================================================================== */
+const QUIZ = [
+  {id:1,title:"视频样本 01",scene:"用户提供的自制视频 · 样本 1",source_name:"用户提供的自制视频",video_url:"assets/videos/clip-01.mp4",is_fake:true,difficulty:"medium",signals:["与对应原视频逐段对照","留意面部与表情变化","单一视觉线索不能定论"],explanation:"按你提供的文件名，这段是换脸处理后的视频；对应原视频为样本 1。这里只按素材标记公布答案，不代表页面已进行自动鉴定。",tip:"可与对应原视频按相近时间点对照，但画面异常也可能来自压缩、剪辑或光线；不要只凭肉眼作身份判断。"},
+  {id:2,title:"视频样本 02",scene:"用户提供的自制视频 · 样本 2",source_name:"用户提供的自制视频",video_url:"assets/videos/clip-02.mp4",is_fake:false,difficulty:"medium",signals:["与样本 2 的处理版对照","留意画面连续性","结合来源和上下文判断"],explanation:"按你提供的文件名，这段是换脸前的原视频；对应处理版为样本 2。这里的“原版”只说明它是这组素材中的原视频，并不验证人物身份或内容真实性。",tip:"重要请求应通过你已知的电话号码或其他独立渠道核实；自然的表情和口型也不能单独证明视频真实。"},
+  {id:3,title:"视频样本 03",scene:"用户提供的自制视频 · 样本 1",source_name:"用户提供的自制视频",video_url:"assets/videos/clip-03.mp4",is_fake:false,difficulty:"medium",signals:["与样本 1 的处理版对照","留意人物动作和背景变化","核验原始发布来源"],explanation:"按你提供的文件名，这段是换脸前的原视频；对应处理版为样本 1。这里的“原版”只说明它是这组素材中的原视频，并不验证人物身份或内容真实性。",tip:"遇到转账、验证码或紧急指令，不要依赖视频中的人脸确认；挂断后用预先保存的联系方式回拨。"},
+  {id:4,title:"视频样本 04",scene:"用户提供的自制视频 · 样本 2",source_name:"用户提供的自制视频",video_url:"assets/videos/clip-04.mp4",is_fake:true,difficulty:"medium",signals:["与对应原视频逐段对照","观察不同片段是否一致","留意剪辑与画质影响"],explanation:"按你提供的文件名，这段是换脸处理后的视频；对应原视频为样本 2。这里只按素材标记公布答案，不代表页面已进行自动鉴定。",tip:"比较前后片段时尽量确认是同一时刻和同一版本；网络压缩、滤镜或剪辑也会造成外观变化。"}
+];
+
+const N = QUIZ.length;
+const FAKE_N = QUIZ.filter(q => q.is_fake).length;
+const REAL_N = N - FAKE_N;
+
+/* 按答对比例分档：改题量不用改这里 */
+const TIERS = [
+  {ratio:1.00, name:"细节观察达人",  color:"#8a6410", line:"满分。你正确辨认了这组素材中的处理版本。"},
+  {ratio:0.80, name:"细节观察者",  color:"#2457c5", line:"很强。你辨认出了大部分处理版本。"},
+  {ratio:0.60, name:"合格观察者",color:"#176b43", line:"及格线以上，但仍有固定的盲区。错的那几题值得再看一遍。"},
+  {ratio:0.40, name:"入门辨认者",color:"#b06a10", line:"你已经开始怀疑了，但还没形成检查清单。"},
+  {ratio:0,    name:"继续练习",  color:"#a52a2a", line:"看完解析后记住核验流程，重要请求务必通过第二渠道确认。"}
+];
+const tierOf = s => TIERS.find(t => s >= Math.round(N * t.ratio)) || TIERS[TIERS.length - 1];
+
+const QR_PATH = "assets/poster-qr.png";   // 可选：放一张二维码进来，海报会自动绘制
+const RATES = [1, 0.5, 0.25];
+
+const $ = id => document.getElementById(id);
+const state = {
+  i: 0, score: 0, answers: [], started: 0,
+  muted: true, rateIdx: 0, posterUrl: null, qr: null, videoMissing: false
+};
+let videoTimer = 0;   // 素材超时兜底计时器（模块级，避免挂在函数对象上）
+
+/* ---------- 工具 ---------- */
+const say = msg => { $("live").textContent = msg; };
+const pad2 = n => String(n).padStart(2, "0");
+
+/* ---------- 屏幕切换 ---------- */
+function go(name){
+  document.querySelectorAll(".screen").forEach(s => {
+    s.classList.remove("on");
+    s.setAttribute("aria-hidden", "true");
+  });
+  const target = $("s-" + name);
+  target.classList.add("on");
+  target.removeAttribute("aria-hidden");
+  window.scrollTo(0, 0);
+}
+
+/* ---------- 开始 ---------- */
+function start(){
+  state.i = 0; state.score = 0; state.answers = [];
+  state.videoMissing = false;
+  state.started = Date.now();
+  applyVideoPrefs();
+  go("quiz");
+  render();
+}
+
+/* ---------- 静音与倍速 ---------- */
+function applyVideoPrefs(){
+  const v = $("vid");
+  v.muted = state.muted;
+  v.playbackRate = RATES[state.rateIdx];
+  $("btnMute").setAttribute("aria-pressed", String(!state.muted));
+  $("btnMute").textContent = state.muted ? "🔇 静音" : "🔊 有声";
+  $("btnRate").setAttribute("aria-pressed", String(state.rateIdx !== 0));
+  $("btnRate").textContent = RATES[state.rateIdx] + "× 速度";
+}
+$("btnMute").addEventListener("click", () => {
+  state.muted = !state.muted;
+  applyVideoPrefs();
+  if (!state.muted){
+    const v = $("vid");
+    if (v.paused) v.play().catch(() => {});
+    say("已开启声音");
+  }
+});
+$("btnRate").addEventListener("click", () => {
+  state.rateIdx = (state.rateIdx + 1) % RATES.length;
+  applyVideoPrefs();
+  say(`播放速度 ${RATES[state.rateIdx]} 倍`);
+});
+/* ---------- 渲染一题 ---------- */
+function render(){
+  const q = QUIZ[state.i];
+  state.videoMissing = false;
+
+  $("qcount").textContent = `第 ${state.i + 1} / ${N} 题`;
+  $("qscore").textContent = `已答 ${state.answers.filter(a => a && a.picked !== null).length} / ${N}`;
+  $("pfill").style.width = `${(state.i / N) * 100}%`;
+  $("clipTag").textContent = `视频样本 ${pad2(state.i + 1)}`;
+  $("sceneText").textContent = `素材背景：${q.scene}`;
+
+  $("fb").hidden = true;
+  $("choices").querySelectorAll(".choice").forEach(b => {
+    b.disabled = false;
+    b.classList.remove("pick-ok", "pick-bad", "dim");
+    const answer = state.answers[state.i];
+    const selected = answer && answer.picked === b.dataset.v;
+    b.classList.toggle("selected", Boolean(selected));
+    b.setAttribute("aria-pressed", String(Boolean(selected)));
+  });
+  $("fb").hidden = !state.answers[state.i];
+  $("btn-prev").hidden = state.i === 0;
+  $("btn-next").textContent = state.i === N - 1 ? "提交并查看成绩" : "下一题";
+
+  loadVideo(q);
+}
+
+function loadVideo(q){
+  const v = $("vid");
+  const guard = $("guard");
+  const wrap = $("vwrap");
+  window.clearTimeout(videoTimer);
+
+  wrap.querySelector(".missing")?.remove();
+  v.pause();
+  v.removeAttribute("src");
+  v.load();
+  $("btnMute").hidden = false;
+  $("btnRate").hidden = false;
+  v.hidden = false;
+  $("vtools").hidden = false;
+  guard.hidden = true;
+  v.poster = "";
+  v.src = q.video_url;
+  v.load();
+  applyVideoPrefs();
+
+  const markMissing = () => {
+    if (state.videoMissing) return;
+    state.videoMissing = true;
+    window.clearTimeout(videoTimer);
+    v.pause();
+    v.hidden = true;
+    guard.hidden = true;
+    $("vtools").hidden = true;
+    const box = document.createElement("div");
+    box.className = "missing";
+    box.innerHTML = `本题素材未就绪<br><code>${q.video_url}</code><br>`
+      + `请把对应片段放入该路径后刷新页面。<br>答辩演示前务必逐条确认素材可播。`;
+    const skip = document.createElement("button");
+    skip.className = "btn";
+    skip.type = "button";
+    skip.textContent = "跳过本题，继续";
+    skip.addEventListener("click", () => {
+      // 记为未作答：不计分、不猜真值，结果页单独提示，避免现场卡死
+      state.answers[state.i] = { id: q.id, picked: null, skipped: true };
+      nextQuestion();
+    });
+    box.appendChild(skip);
+    wrap.appendChild(box);
+    say("本题素材缺失，可选择跳过");
+  };
+
+  v.onerror = markMissing;
+  v.onloadeddata = () => {
+    window.clearTimeout(videoTimer);
+    guard.hidden = false;
+    v.play().then(() => { guard.hidden = true; }).catch(() => { guard.hidden = false; });
+  };
+  // 4 秒仍未出画即判定素材缺失，避免现场长时间黑屏
+  videoTimer = window.setTimeout(() => { if (v.readyState < 2) markMissing(); }, 4000);
+}
+
+$("guard").addEventListener("click", () => {
+  $("vid").play().then(() => { $("guard").hidden = true; }).catch(() => {});
+});
+$("vid").addEventListener("click", () => {
+  const v = $("vid");
+  if (v.paused) v.play().catch(() => {}); else v.pause();
+});
+
+/* ---------- 判定（事件委托，一个监听器管两个按钮） ---------- */
+$("choices").addEventListener("click", e => {
+  const btn = e.target.closest(".choice");
+  if (!btn) return;
+
+  const q = QUIZ[state.i];
+  const pickedFake = btn.dataset.v === "fake";
+  $("choices").querySelectorAll(".choice").forEach(b => {
+    b.classList.toggle("selected", b === btn);
+    b.setAttribute("aria-pressed", String(b === btn));
+  });
+  state.answers[state.i] = { id: q.id, picked: pickedFake ? "fake" : "real" };
+  $("fb").hidden = false;
+  $("formStatus").textContent = "已记录本题选择。提交前不会显示答案。";
+  $("btn-prev").hidden = state.i === 0;
+  $("btn-next").textContent = state.i === N - 1 ? "提交并查看成绩" : "下一题";
+  $("qscore").textContent = `已答 ${state.answers.filter(a => a && a.picked !== null).length} / ${N}`;
+  say("已记录选择；提交前不会显示答案");
+});
+
+/* ---------- 下一题 ---------- */
+function nextQuestion(){
+  if (!state.answers[state.i]) return;
+  $("vid").pause();
+  if (state.i === N - 1) finish();
+  else {
+    state.i += 1;
+    render();
+    window.scrollTo({ top:0, behavior:"smooth" });
+  }
+}
+
+$("btn-next").addEventListener("click", () => {
+  if (!$("s-quiz").classList.contains("on")) return;
+  nextQuestion();
+});
+$("btn-prev").addEventListener("click", () => {
+  if (!$("s-quiz").classList.contains("on") || state.i === 0) return;
+  $("vid").pause();
+  state.i -= 1;
+  render();
+  window.scrollTo({ top:0, behavior:"smooth" });
+});
+
+/* ---------- 结算 ---------- */
+function finish(){
+  state.score = state.answers.reduce((score, answer, index) =>
+    score + Number(Boolean(answer && answer.picked !== null
+      && (answer.picked === "fake") === QUIZ[index].is_fake)), 0);
+  const s = state.score;
+  const tier = tierOf(s);
+  const secs = Math.max(1, Math.round((Date.now() - state.started) / 1000));
+  const skipped = state.answers.filter(a => a.skipped).length;
+
+  $("rScore").textContent = s;
+  $("rTier").textContent = tier.name;
+  $("rTier").style.color = tier.color;
+  $("rSub").textContent = `${tier.line} 用时 ${Math.floor(secs / 60)} 分 ${secs % 60} 秒。`;
+
+  $("skipNote").hidden = !skipped;
+  if (skipped) $("skipNote").textContent = `其中 ${skipped} 题因素材缺失未作答，不计入得分。`;
+
+  const ring = $("ring");
+  const C = 2 * Math.PI * 72;
+  ring.style.stroke = tier.color;
+  ring.setAttribute("stroke-dasharray", C.toFixed(1));
+  ring.setAttribute("stroke-dashoffset", C.toFixed(1));
+  window.setTimeout(() => {
+    ring.setAttribute("stroke-dashoffset", (C * (1 - s / N)).toFixed(1));
+  }, 60);
+
+  const wrong = state.answers.filter((a, index) =>
+    !a || a.picked === null || (a.picked === "fake") !== QUIZ[index].is_fake);
+  const box = $("review");
+  box.replaceChildren();
+  if (!wrong.length){
+    const p = document.createElement("p");
+    p.className = "allright";
+    p.textContent = `${N} 题全对。题目答案按用户提供的素材标记，不代表自动鉴伪结果。`;
+    box.appendChild(p);
+  } else {
+    const ul = document.createElement("ul");
+    ul.className = "review";
+    wrong.forEach(a => {
+      const q = QUIZ.find(x => x.id === a.id);
+      const li = document.createElement("li");
+      const b = document.createElement("button");
+      b.type = "button";
+      b.dataset.replay = String(q.id);
+      const no = document.createElement("span");
+      no.className = "no"; no.textContent = q.id;
+      const txt = document.createElement("div");
+      txt.className = "txt";
+      const t = document.createElement("b"); t.textContent = q.title;
+      const sp = document.createElement("span");
+      sp.textContent = !a || a.picked === null
+        ? `本题未作答。${q.tip}`
+        : `你判为「${a.picked === "fake" ? "换脸处理" : "原版视频"}」，实际是「${q.is_fake ? "换脸处理" : "原版视频"}」。${q.tip}`;
+      const re = document.createElement("span");
+      re.className = "re"; re.textContent = "重看这段 ↗";
+      txt.append(t, sp, re);
+      b.append(no, txt);
+      li.appendChild(b);
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+  }
+
+  go("result");
+  say(`挑战结束，答对 ${s} 题，评级 ${tier.name}`);
+}
+
+/* ---------- 错题重看 ---------- */
+function openReplay(id){
+  const q = QUIZ.find(x => x.id === id);
+  if (!q) return;
+  const v = $("rpVid");
+  $("rpTitle").textContent = `第 ${q.id} 题 · ${q.title}`;
+  v.pause();
+  v.removeAttribute("src");
+  v.load();
+  v.hidden = false;
+  v.src = q.video_url;
+  $("rpChips").replaceChildren(...q.signals.map(s => {
+    const li = document.createElement("li");
+    li.textContent = s;
+    return li;
+  }));
+  $("rpExplain").textContent = q.explanation;
+  $("rpTip").textContent = q.tip;
+  $("replay").classList.add("on");
+  $("rpClose").focus();
+}
+$("review").addEventListener("click", e => {
+  const btn = e.target.closest("[data-replay]");
+  if (btn) openReplay(Number(btn.dataset.replay));
+});
+$("rpClose").addEventListener("click", () => {
+  $("rpVid").pause();
+  $("rpVid").removeAttribute("src");
+  $("rpVid").load();
+  $("rpVid").hidden = false;
+  $("replay").classList.remove("on");
+});
+$("replay").addEventListener("click", e => {
+  if (e.target === $("replay")) $("rpClose").click();
+});
+$("rpVid").addEventListener("error", () => {
+  $("rpExplain").textContent = "该片段素材尚未就绪，无法重看。请按素材清单补齐后再试。";
+});
+
+/* ---------- 海报 ---------- */
+function roundRect(ctx, x, y, w, h, r){
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+/** 按宽度折行；超过 maxLines 时末行截断补省略号 */
+function wrapText(ctx, text, x, y, maxW, lh, maxLines){
+  const lines = [];
+  let line = "";
+  for (const ch of [...text]){
+    if (ctx.measureText(line + ch).width > maxW && line){
+      lines.push(line);
+      line = ch;
+      if (lines.length === maxLines) break;
+    } else {
+      line += ch;
+    }
+  }
+  if (lines.length < maxLines && line) lines.push(line);
+  else if (lines.length === maxLines){
+    let last = lines[maxLines - 1];
+    while (last && ctx.measureText(last + "…").width > maxW) last = last.slice(0, -1);
+    lines[maxLines - 1] = last + "…";
+  }
+  lines.forEach((l, i) => ctx.fillText(l, x, y + i * lh));
+}
+
+function buildPoster(){
+  const W = 750, H = 1050;
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const g = c.getContext("2d");
+  const s = state.score;
+  const tier = tierOf(s);
+  const FAM = '"Microsoft YaHei","PingFang SC","Hiragino Sans GB",sans-serif';
+
+  const bg = g.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, "#10234f");
+  bg.addColorStop(.55, "#1b3f8f");
+  bg.addColorStop(1, "#2457c5");
+  g.fillStyle = bg;
+  g.fillRect(0, 0, W, H);
+
+  g.save();
+  g.globalAlpha = .12;
+  g.fillStyle = "#9dbdf5";
+  g.beginPath(); g.arc(650, 130, 190, 0, Math.PI * 2); g.fill();
+  g.beginPath(); g.arc(60, 900, 230, 0, Math.PI * 2); g.fill();
+  g.restore();
+
+  g.fillStyle = "rgba(255,255,255,.62)";
+  g.font = `600 22px ${FAM}`;
+  g.textAlign = "left";
+  g.fillText("真人视频辨认 · 互动挑战", 62, 92);
+
+  g.textAlign = "right";
+  g.fillStyle = "rgba(255,255,255,.45)";
+  g.font = `500 20px ${FAM}`;
+  g.fillText("第 24 季 赢在创新", W - 62, 92);
+
+  g.textAlign = "left";
+  g.fillStyle = "#ffffff";
+  g.font = `800 76px ${FAM}`;
+  g.fillText("真假视频", 62, 210);
+  g.fillText("大挑战", 62, 298);
+
+  g.save();
+  g.fillStyle = "rgba(255,255,255,.10)";
+  roundRect(g, 58, 348, W - 116, 340, 28);
+  g.fill();
+  g.strokeStyle = "rgba(255,255,255,.20)";
+  g.lineWidth = 2;
+  g.stroke();
+  g.restore();
+
+  g.textAlign = "center";
+  g.fillStyle = "#ffffff";
+  g.font = `800 168px ${FAM}`;
+  g.fillText(String(s), W / 2 - 62, 560);
+  g.fillStyle = "rgba(255,255,255,.55)";
+  g.font = `700 56px ${FAM}`;
+  g.fillText("/" + N, W / 2 + 96, 560);
+
+  g.fillStyle = "rgba(255,255,255,.72)";
+  g.font = `500 26px ${FAM}`;
+  g.fillText(`在 ${N} 段视频中，我认出 ${s} 段换脸处理`, W / 2, 620);
+
+  g.font = `800 40px ${FAM}`;
+  const tw = g.measureText(tier.name).width;
+  const pw = tw + 76, px = (W - pw) / 2;
+  g.save();
+  g.fillStyle = "rgba(255,255,255,.94)";
+  roundRect(g, px, 648, pw, 66, 33);
+  g.fill();
+  g.restore();
+  g.fillStyle = tier.color;
+  g.font = `800 38px ${FAM}`;
+  g.fillText(tier.name, W / 2, 696);
+
+  g.textAlign = "left";
+  g.fillStyle = "rgba(255,255,255,.86)";
+  g.font = `500 27px ${FAM}`;
+  wrapText(g, tier.line, 62, 790, W - 124, 44, 3);
+
+  g.strokeStyle = "rgba(255,255,255,.22)";
+  g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(62, 900); g.lineTo(W - 62, 900); g.stroke();
+
+  // 有二维码就画，没有就只写文字引导——不写"扫码"，避免误导
+  if (state.qr){
+    const qs = 132, qx = W - 62 - qs, qy = 918;
+    g.save();
+    g.fillStyle = "#fff";
+    roundRect(g, qx - 8, qy - 8, qs + 16, qs + 16, 10);
+    g.fill();
+    g.drawImage(state.qr, qx, qy, qs, qs);
+    g.restore();
+    g.fillStyle = "#ffffff";
+    g.font = `700 34px ${FAM}`;
+    g.fillText("你能认出几段？", 62, 962);
+    g.fillStyle = "rgba(255,255,255,.62)";
+    g.font = `500 24px ${FAM}`;
+    g.fillText("扫码参与挑战", 62, 1002);
+  } else {
+    g.fillStyle = "#ffffff";
+    g.font = `700 34px ${FAM}`;
+    g.fillText("你能认出几段？", 62, 962);
+    g.fillStyle = "rgba(255,255,255,.62)";
+    g.font = `500 24px ${FAM}`;
+    g.fillText("把这张图发给朋友，看看他们能认出几段", 62, 1002);
+  }
+
+  return c;
+}
+
+$("btn-poster").addEventListener("click", () => {
+  let canvas;
+  try {
+    canvas = buildPoster();
+  } catch {
+    say("海报生成失败，请直接截图。");
+    return;
+  }
+  canvas.toBlob(blob => {
+    if (!blob){ say("海报生成失败，请截图保存。"); return; }
+    if (state.posterUrl) URL.revokeObjectURL(state.posterUrl);
+    state.posterUrl = URL.createObjectURL(blob);
+    $("posterImg").src = state.posterUrl;
+    $("posterHint").textContent = state.qr
+      ? "手机端可长按图片保存，或点下面的按钮下载"
+      : "手机端可长按图片保存。想加二维码，把 assets/poster-qr.png 放好再生成。";
+    $("sheet").classList.add("on");
+    $("btn-close").focus();
+  }, "image/png");
+});
+
+$("btn-download").addEventListener("click", () => {
+  if (!state.posterUrl) return;
+  const a = document.createElement("a");
+  a.href = state.posterUrl;
+  a.download = `deepfake-quiz-${state.score}of${N}.png`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+});
+$("btn-close").addEventListener("click", () => $("sheet").classList.remove("on"));
+$("sheet").addEventListener("click", e => { if (e.target === $("sheet")) $("sheet").classList.remove("on"); });
+
+/* ---------- 重玩 ---------- */
+$("btn-start").addEventListener("click", start);
+$("btn-again").addEventListener("click", () => go("start"));
+
+/* ---------- 键盘 ---------- */
+document.addEventListener("keydown", e => {
+  const posterOpen = $("sheet").classList.contains("on");
+  const replayOpen = $("replay").classList.contains("on");
+  if (e.key === "Escape"){
+    if (posterOpen) $("sheet").classList.remove("on");
+    if (replayOpen) $("rpClose").click();
+    return;
+  }
+  if (posterOpen || replayOpen) return;
+  if ($("s-quiz").classList.contains("on")){
+    const k = e.key.toLowerCase();
+    if (k === "1" || k === "r") $("choices").querySelector('.choice[data-v="real"]').click();
+    if (k === "2" || k === "f") $("choices").querySelector('.choice[data-v="fake"]').click();
+  }
+});
+
+/* ---------- 初始化 ---------- */
+(function boot(){
+  // 数据自检：id 重复会让真值与解析错位，宁可早报错也别留到答辩现场
+  const ids = QUIZ.map(q => q.id);
+  if (new Set(ids).size !== ids.length) console.error("[QUIZ] id 重复，真值会与解析错位");
+  if (FAKE_N !== REAL_N) console.warn(`[QUIZ] 真假数量不平衡：假 ${FAKE_N} / 真 ${REAL_N}`);
+
+  $("kicker").textContent = `挑战 · ${N} 段真人视频`;
+  $("lede").textContent = `接下来你会看到 ${N} 段用户提供的真人视频，其中 ${REAL_N} 段为原版，${FAKE_N} 段经过换脸处理。观察后判断它是否被处理。`;
+  $("rScoreLbl").textContent = `答对题数 / ${N}`;
+  $("disN").textContent = N;
+
+  applyVideoPrefs();
+  // 二维码可选加载，失败不影响主流程
+  const qr = new Image();
+  qr.onload = () => { state.qr = qr; };
+  qr.onerror = () => { state.qr = null; };
+  qr.src = QR_PATH;
+})();
+</script>
+</body>
+</html>
